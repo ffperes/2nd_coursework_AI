@@ -51,6 +51,9 @@ public class LevelGenerator : MonoBehaviour {
 		for (int i = 0; i < levelOfRefinement; i++) {
 			RefineLevel ();
 		}
+
+		GeneratorOfMesh meshGen = GetComponent<GeneratorOfMesh>();
+		meshGen.GenerateMesh(level, 1);
 	}
 
 	void RandomGeneratesLevel(){
@@ -117,7 +120,9 @@ public class LevelGenerator : MonoBehaviour {
 	// This fuction will draw cubes at the scene to check if the above algorithm is working
 	// iif the block is empty, it will fulfill its color with yellow
 	// if the bloc is being used, its colour will be blue.
+	// Also debug and visualization purposes
 	void OnDrawGizmos(){
+	/*
 		if (level != null) {
 			for (int x = 0; x < width; x++){
 				for (int z = 0; z < height; z++){
@@ -127,6 +132,7 @@ public class LevelGenerator : MonoBehaviour {
 				}
 			}
 		}
+		*/
 	}
 
 }
