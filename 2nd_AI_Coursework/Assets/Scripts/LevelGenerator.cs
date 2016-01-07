@@ -16,6 +16,7 @@ public class LevelGenerator : MonoBehaviour {
 	// height here is not Y axis, but Z axis instead
 	public int width;
 	public int height;
+	public int levelOfRefinement = 5;
 
 	// The first option will hold a number based on a hash code of a string,
 	// and therefore allow me to create the same level if and only if the same
@@ -29,10 +30,27 @@ public class LevelGenerator : MonoBehaviour {
 		GenerateLevel ();
 	}
 
+	void Update(){
+		//////////////////////////////////////
+		// WARNING FABIO                    //
+		// Click the mouse in the game      //
+		// window when the scene is running //
+		// not at the scene view noob       //
+		//////////////////////////////////////
+		// To generate a new seed level each time the left buttom mouse is clicked
+		if (Input.GetMouseButtonDown (0)) {
+			GenerateLevel ();
+		}
+	}
+
 	void GenerateLevel(){
 		// Set the size of the level
 		level = new int[width, height];
 		RandomGeneratesLevel ();
+
+		for (int i = 0; i < levelOfRefinement; i++) {
+			RefineLevel ();
+		}
 	}
 
 	void RandomGeneratesLevel(){
@@ -58,6 +76,42 @@ public class LevelGenerator : MonoBehaviour {
 				}
 			}	
 		}
+	}
+
+	//
+	void RefineLevel(){
+		for (int x = 0; x < width; x++) {
+			for (int z = 0; z < height; z++) {
+				int neighbourUsedTiles = GetUsedTilesAround (x, z);
+				if (neighbourUsedTiles > 4) {
+					level [x, z] = 1;
+				} else if (neighbourUsedTiles < 4){
+					level [x, z] = 0;
+				}
+			}
+		}
+	}
+
+	// Takes the current tile to be checked as arguments and
+	// Looping a 3x3 grid looking for all adjacents tiles of the current tile being analised
+	int GetUsedTilesAround(int _x, int _z){
+		int counter = 0;
+		for (int tileAround_X = _x - 1; tileAround_X <= _x + 1; tileAround_X++) {
+			for (int tileAround_Z = _z - 1; tileAround_Z <= _z + 1; tileAround_Z++) {
+				// To constrain the analise to inside of the level itself, in case of an edge
+				// tile been check
+				if (tileAround_X >= 0 && tileAround_X < width && tileAround_Z >= 0 && tileAround_Z < height) {
+					// Condition to skip the current tile
+					if (tileAround_X != _x || tileAround_Z != _z) {
+						// The counter will increase if the tile being checked is a used tile
+						counter += level [tileAround_X, tileAround_Z];
+					}
+				} else {
+					counter++;
+				}
+			}
+		}
+		return counter;
 	}
 
 	// This fuction will draw cubes at the scene to check if the above algorithm is working
