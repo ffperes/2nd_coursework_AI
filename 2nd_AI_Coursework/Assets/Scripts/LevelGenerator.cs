@@ -50,7 +50,12 @@ public class LevelGenerator : MonoBehaviour {
 		// 1 for a used block
 		for (int x = 0; x < width; x++){
 			for (int z = 0; z < height; z++) {
-				level [x, z] = (randomSeedGenerator.Next (0, 100) < spaceDistributionOfTerrain) ? 1 : 0;
+				// Set the edges if the grid as used block
+				if (x == 0 || x == width - 1 || z == 0 || z == height - 1) {
+					level [x, z] = 1;
+				} else {
+					level [x, z] = (randomSeedGenerator.Next (0, 100) < spaceDistributionOfTerrain) ? 1 : 0;
+				}
 			}	
 		}
 	}
