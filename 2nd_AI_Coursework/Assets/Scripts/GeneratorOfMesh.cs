@@ -390,7 +390,7 @@ public class GeneratorOfMesh : MonoBehaviour {
 	// The system to do that is based on the 16 different possibilities of combinations
 	// that a square (4 corners) and 4 node between the corners can have
 	void OnDrawGizmos(){
-		/*
+		
 		if (squareGrid != null) {
 			for (int x = 0; x < squareGrid.squares.GetLength(0); x++) {
 				for (int z = 0; z < squareGrid.squares.GetLength(1); z++) {
@@ -414,6 +414,6 @@ public class GeneratorOfMesh : MonoBehaviour {
 				}
 			}
 		}
-		*/
 	}
+
 }
