@@ -52,8 +52,23 @@ public class LevelGenerator : MonoBehaviour {
 			RefineLevel ();
 		}
 
+		// Creates a border to my level
+		// x2 for both sides
+		int border = 1;
+		int [,] borderOfTheLevel = new int[width + border * 2, height + border * 2];
+		for (int x = 0; x < borderOfTheLevel.GetLength(0); x++) {
+			for (int z = 0; z < borderOfTheLevel.GetLength(1); z++) {
+				if (x >= border && x < width + border && z >= border && z < height + border) {
+					borderOfTheLevel [x, z] = level [x - border, z - border];				
+				} else {
+					borderOfTheLevel [x, z] = 1;
+				}
+			}
+		}
+
+		// To get the mesh component from the object that the script is attateched to
 		GeneratorOfMesh meshGen = GetComponent<GeneratorOfMesh>();
-		meshGen.GenerateMesh(level, 1);
+		meshGen.GenerateMesh(borderOfTheLevel, 1);
 	}
 
 	void RandomGeneratesLevel(){

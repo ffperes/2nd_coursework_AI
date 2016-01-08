@@ -4,12 +4,24 @@ using System.Collections.Generic;
 
 public class GeneratorOfMesh : MonoBehaviour {
 
+	public MeshFilter walls;
 	public SquareGrid squareGrid;
 	List<Vector3> vertices;
 	List<int> triangles;
+	// It will be passed a key, as an integer that will be the vertex index at the struct Triangle
+	// the value thar will be returned by that key will be a list of all triangles that vertex
+	// is part of
+	Dictionary<int, List<Triangle>> triDic = new Dictionary<int, List<Triangle>>();
+	List<List<int>> outline = new List<List<int>> ();
+	HashSet<int> verticesAlreadyChecked = new HashSet<int> ();
 
 	public void GenerateMesh(int[,] map, float squareSize){
+		outline.Clear (); // to reset this variable everytime a new mesh is generated - when user clicks the mouse
+		verticesAlreadyChecked.Clear (); // to reset this variable everytime a new mesh is generated - when user clicks the mouse
+		triDic.Clear(); // to reset this variable everytime a new mesh is generated - when user clicks the mouse
+
 		squareGrid = new SquareGrid (map, squareSize);
+
 
 		vertices = new List<Vector3> ();
 		triangles = new List<int> ();
@@ -25,6 +37,66 @@ public class GeneratorOfMesh : MonoBehaviour {
 		mesh.vertices = vertices.ToArray ();
 		mesh.triangles = triangles.ToArray ();
 		mesh.RecalculateNormals ();
+
+		ExtrudeMeshForWalls ();
+	}
+
+	void ExtrudeMeshForWalls(){
+		MeshOutline ();
+
+		List<int> triWalls = new List<int> ();
+		Mesh meshWall = new Mesh ();
+		float heightOfWall = 8;
+		List<Vector3> verticeOfWall = new List<Vector3> ();
+
+		foreach (List<int> outlines in outline) {
+			for (int i = 0; i < outlines.Count - 1; i++) {
+				int startVertex = verticeOfWall.Count;
+				verticeOfWall.Add(vertices[outlines[i]]);
+				verticeOfWall.Add(vertices[outlines[i+1]]);
+				verticeOfWall.Add(vertices[outlines[i]] - Vector3.up * heightOfWall);
+				verticeOfWall.Add(vertices[outlines[i+1]] - Vector3.up * heightOfWall);
+
+				triWalls.Add (startVertex + 0);
+				triWalls.Add (startVertex + 2);
+				triWalls.Add (startVertex + 3);
+
+				triWalls.Add (startVertex + 3);
+				triWalls.Add (startVertex + 1);
+				triWalls.Add (startVertex + 0);
+			}
+		}
+		meshWall.vertices = verticeOfWall.ToArray ();
+		meshWall.triangles = triWalls.ToArray ();
+		walls.mesh = meshWall;
+
+	}
+
+	// Those vertex will hold the vertex index of a triangle
+	struct Triangle {
+		public int vertexOne, vertexTwo, vertexThree;
+		int[] v; // for vertices
+
+		public Triangle( int _vertexOne, int _vertexTwo, int _vertexThree){
+			vertexOne = _vertexOne;
+			vertexTwo = _vertexTwo;
+			vertexThree = _vertexThree;
+
+			v = new int[3];
+			v[0] = _vertexOne;
+			v[1] = _vertexTwo;
+			v[2] = _vertexThree;
+		}
+
+		public int this[int i]{
+			get{ 
+				return v [i];
+			}
+		}
+
+		public bool Contains(int i){
+			return i == vertexOne || i == vertexTwo || i == vertexThree;
+		}
 	}
 
 	// The system to do that is based on the 16 different possibilities of combinations
@@ -37,13 +109,13 @@ public class GeneratorOfMesh : MonoBehaviour {
 		
 		// 1 pseudo-node
 		case 1: 
-			CreateMeshFromNodes (_square.south, _square.southeastCorner, _square.west);
+			CreateMeshFromNodes (_square.west, _square.south, _square.southwestCorner);
 			break;
 		case 2:
-			CreateMeshFromNodes (_square.east, _square.southeastCorner, _square.south);
+			CreateMeshFromNodes (_square.southeastCorner, _square.south, _square.east);
 			break;
 		case 4: 
-			CreateMeshFromNodes (_square.north, _square.northeastCorner, _square.east);
+			CreateMeshFromNodes (_square.northeastCorner, _square.east, _square.north);
 			break;
 		case 8: 
 			CreateMeshFromNodes (_square.northwestCorner, _square.north, _square.west);
@@ -86,6 +158,10 @@ public class GeneratorOfMesh : MonoBehaviour {
 		// 4 pseudo-nodes
 		case 15:
 			CreateMeshFromNodes (_square.northwestCorner, _square.northeastCorner, _square.southeastCorner, _square.southwestCorner);
+			verticesAlreadyChecked.Add (_square.northwestCorner.vertexIndex);
+			verticesAlreadyChecked.Add (_square.northeastCorner.vertexIndex);
+			verticesAlreadyChecked.Add (_square.southeastCorner.vertexIndex);
+			verticesAlreadyChecked.Add (_square.southwestCorner.vertexIndex);
 			break;
 		}
 	}
@@ -119,13 +195,96 @@ public class GeneratorOfMesh : MonoBehaviour {
 		}
 	}
 
+	// This method add 3 etices to form a triangle
 	void CreateTriangles(Node one, Node two, Node three){
 		triangles.Add (one.vertexIndex);
 		triangles.Add (two.vertexIndex);
 		triangles.Add (three.vertexIndex);
+
+		Triangle tri = new Triangle (one.vertexIndex, two.vertexIndex, three.vertexIndex);
+		AddTriDictionary (tri.vertexOne, tri);
+		AddTriDictionary (tri.vertexTwo, tri);
+		AddTriDictionary(tri.vertexThree, tri);
 	}
 
+	// This method will add the triangle create in the method above and store it at the list in
+	// the dictionary
+	// if the dictionary already contained that triangle key, it will simply add the current triangle 
+	// to the list, otherwise, it will create a new list of triangles
+	void AddTriDictionary(int vertexKey, Triangle tri){
+		if (triDic.ContainsKey (vertexKey)) {
+			triDic [vertexKey].Add (tri);
+		} else {
+			List<Triangle> triList = new List<Triangle> ();
+			triList.Add (tri);
+			triDic.Add (vertexKey, triList);
+		}
+	}
 
+	// It will go through every single vertex in the level, it will check if it is an outline vertex
+	// and if IS, it will follow that outline, all the way around, until it finds itself again and will add
+	// that to the outline list
+	void MeshOutline(){
+		for (int vertexIndex = 0; vertexIndex < vertices.Count; vertexIndex++) {
+			if (!verticesAlreadyChecked.Contains (vertexIndex)) {
+				int newOutlineVertex = GetConnectedOutlineVertex (vertexIndex);
+				if (newOutlineVertex != -1) {
+					verticesAlreadyChecked.Add (vertexIndex);
+					List<int> newOutline = new List<int> ();
+					outline.Add (newOutline);
+					FollowOutline (newOutlineVertex, outline.Count - 1);
+					outline [outline.Count - 1].Add (vertexIndex);
+				}
+			}
+		}
+	}
+
+	void FollowOutline (int _vertexIndex, int _outlineIndex){
+		outline [_outlineIndex].Add (_vertexIndex);
+		verticesAlreadyChecked.Add (_vertexIndex);
+		int nextVertexIndex = GetConnectedOutlineVertex (_vertexIndex);
+		if (nextVertexIndex != -1) {
+			FollowOutline (nextVertexIndex, _outlineIndex);
+		}
+	}
+
+	// This method will take 2 vertices and check if they belong to more than one triangle
+	// If yes, they are NOT an outline edge, if they belong to just ONE triangule, then they
+	// are an outline edge by definition
+	bool OutlineEdge (int vertexOne, int vertexTwo){
+		int counter = 0; // to track the number of triangles shared by the current vertex
+		List<Triangle> trianglesThatContainsVertexOne = triDic [vertexOne];
+
+		for (int i = 0; i < trianglesThatContainsVertexOne.Count; i++) {// count thats the number of values in the list
+			if(trianglesThatContainsVertexOne[i].Contains(vertexTwo)){
+				counter++;
+				if(counter > 1){
+					break;
+				}
+			}
+		}
+		return counter == 1;
+	}
+
+	// To get a list of all triangles that contain the vertexOne parameter
+	int GetConnectedOutlineVertex(int _vertexOne){
+		List<Triangle> triThatContainsVertexOne = triDic [_vertexOne];
+
+		for (int i = 0; i < triThatContainsVertexOne.Count; i++) {
+			Triangle tri = triThatContainsVertexOne [i];
+
+			for (int j = 0; j < 3; j++) {
+				int vertex = tri [j];
+				if (vertex != _vertexOne && !verticesAlreadyChecked.Contains(vertex)) {
+					if (OutlineEdge (_vertexOne, vertex)) {
+						return vertex;
+					}
+				}
+			}
+		}
+		return -1;
+	}
+		
 	// The only objective of this class is to store position values
 	public class Node{
 		public Vector3 position;
